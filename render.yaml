@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: medinet-backend
+    name: patient-referral-system-backend
     env: node
     plan: free
     buildCommand: npm install
@@ -28,6 +28,6 @@ services:
       - key: EMAIL_PASS
         sync: false
       - key: EMAIL_FROM
-        value: noreply@medinet.com
+        value: noreply@patient-referral-system.com
       - key: CORS_ORIGIN
-        value: https://medinet-frontend.vercel.app
+        value: https://patient-referral-system-frontend.vercel.app

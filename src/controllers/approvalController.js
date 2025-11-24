@@ -162,7 +162,7 @@ const approveUser = async (req, res) => {
         try {
             await sendEmail({
                 email: user.email,
-                subject: 'Account Approved - MediNet',
+                subject: 'Account Approved - Patient Referral System',
                 html: emailTemplates.accountApproved(user.firstName, message)
             });
         } catch (emailError) {
@@ -219,7 +219,7 @@ const rejectUser = async (req, res) => {
         try {
             await sendEmail({
                 email: user.email,
-                subject: 'Account Application Rejected - MediNet',
+                subject: 'Account Application Rejected - Patient Referral System',
                 html: emailTemplates.accountRejected(user.firstName, reason)
             });
         } catch (emailError) {
@@ -287,7 +287,7 @@ const approveHospital = async (req, res) => {
                 subject: 'Hospital Registration Approved',
                 html: emailTemplates.hospitalApproved({
                     hospitalName: hospital.name,
-                    message: message || 'Your hospital has been approved and is now active in the MediNet system.'
+                    message: message || 'Your hospital has been approved and is now active in the Patient Referral System.'
                 })
             });
         } catch (emailError) {
@@ -348,7 +348,7 @@ const rejectHospital = async (req, res) => {
                 if (admin) {
                     await sendEmail({
                         email: admin.email,
-                        subject: 'Hospital Application Rejected - MediNet',
+                        subject: 'Hospital Application Rejected - Patient Referral System',
                         html: emailTemplates.hospitalRejected(hospital.name, reason)
                     });
                 }

@@ -1,6 +1,6 @@
-# MediNet Backend
+# Patient Referral System Backend
 
-A robust Node.js backend API for the MediNet healthcare management platform. Built with Express.js, MongoDB, and JWT authentication, featuring a comprehensive approval workflow system for hospitals and doctors.
+A robust Node.js backend API for the Patient Referral System healthcare management platform. Built with Express.js, MongoDB, and JWT authentication, featuring a comprehensive approval workflow system for hospitals and doctors.
 
 ## 🚀 Features
 
@@ -53,8 +53,8 @@ A robust Node.js backend API for the MediNet healthcare management platform. Bui
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/DaniyalAlam09/medinet-backend.git
-   cd medinet-backend
+   git clone https://github.com/dev-tayyabhussain/Patient-Referral-System-Backend.git
+   cd Patient-Referral-System-Backend
    ```
 
 2. **Install dependencies**
@@ -74,7 +74,7 @@ A robust Node.js backend API for the MediNet healthcare management platform. Bui
    ```env
    NODE_ENV=development
    PORT=5000
-   MONGODB_URI=mongodb://localhost:27017/medinet
+   MONGODB_URI=mongodb://localhost:27017/patient-referral-system
    JWT_SECRET=your_jwt_secret
    JWT_EXPIRE=7d
    JWT_COOKIE_EXPIRE=7
@@ -329,7 +329,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-For support, email support@medinet.com or create an issue in the repository.
+For support, email support@patient-referral-system.com or create an issue in the repository.
 
 ## 🔄 Version History
 
@@ -339,4 +339,4 @@ For support, email support@medinet.com or create an issue in the repository.
 
 ---
 
-**MediNet Backend** - Powering healthcare management through robust APIs and secure authentication.
+**Patient Referral System Backend** - Powering healthcare management through robust APIs and secure authentication.
