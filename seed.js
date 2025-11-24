@@ -52,11 +52,11 @@ const createSuperAdmins = async () => {
     const admins = [];
 
     const adminData = [
-        { firstName: 'Admin', lastName: 'One', email: 'admin1@gmail.com', adminLevel: 'system', organization: 'MediNet System', responsibilities: 'System administration and platform management' },
-        { firstName: 'Admin', lastName: 'Two', email: 'admin2@gmail.com', adminLevel: 'platform', organization: 'MediNet Platform', responsibilities: 'Platform operations and user management' },
-        { firstName: 'Admin', lastName: 'Three', email: 'admin3@gmail.com', adminLevel: 'support', organization: 'MediNet Support', responsibilities: 'Customer support and issue resolution' },
-        { firstName: 'Admin', lastName: 'Four', email: 'admin4@gmail.com', adminLevel: 'system', organization: 'MediNet System', responsibilities: 'System maintenance and security' },
-        { firstName: 'Admin', lastName: 'Five', email: 'admin5@gmail.com', adminLevel: 'platform', organization: 'MediNet Platform', responsibilities: 'Platform development and integration' },
+        { firstName: 'Admin', lastName: 'One', email: 'admin1@gmail.com', adminLevel: 'system', organization: 'Patient Referral System', responsibilities: 'System administration and platform management' },
+        { firstName: 'Admin', lastName: 'Two', email: 'admin2@gmail.com', adminLevel: 'platform', organization: 'Patient Referral System', responsibilities: 'Platform operations and user management' },
+        { firstName: 'Admin', lastName: 'Three', email: 'admin3@gmail.com', adminLevel: 'support', organization: 'Patient Referral System', responsibilities: 'Customer support and issue resolution' },
+        { firstName: 'Admin', lastName: 'Four', email: 'admin4@gmail.com', adminLevel: 'system', organization: 'Patient Referral System', responsibilities: 'System maintenance and security' },
+        { firstName: 'Admin', lastName: 'Five', email: 'admin5@gmail.com', adminLevel: 'platform', organization: 'Patient Referral System', responsibilities: 'Platform development and integration' },
     ];
 
     for (const data of adminData) {

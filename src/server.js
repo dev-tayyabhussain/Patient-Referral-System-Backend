@@ -50,14 +50,14 @@ connectDB();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'MediNet API Documentation'
+    customSiteTitle: 'Patient Referral System API Documentation'
 }));
 
 // Routes
 app.get('/api/health', (req, res) => {
     res.json({
         success: true,
-        message: 'MediNet API is running!',
+        message: 'Patient Referral System API is running!',
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
         version: '1.0.0'
@@ -110,7 +110,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`🚀 MediNet Backend running on port ${PORT}`);
+    console.log(`🚀 Patient Referral System Backend running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
 });

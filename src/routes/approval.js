@@ -219,7 +219,7 @@ router.get('/pending-doctors', protect, authorize('hospital'), getPendingDoctors
  *               message:
  *                 type: string
  *                 description: Optional approval message
- *                 example: "Welcome to MediNet! Your account has been approved."
+ *                 example: "Welcome to Patient Referral System! Your account has been approved."
  *     responses:
  *       200:
  *         description: User approved successfully
@@ -331,7 +331,7 @@ router.post('/reject-user/:userId', protect, authorize('super_admin', 'hospital'
  *               message:
  *                 type: string
  *                 description: Optional approval message
- *                 example: "Welcome to the MediNet network!"
+ *                 example: "Welcome to the Patient Referral System network!"
  *     responses:
  *       200:
  *         description: Hospital approved successfully

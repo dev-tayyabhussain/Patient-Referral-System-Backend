@@ -1,7 +1,7 @@
 {
-  "name": "medinet-backend",
+  "name": "patient-referral-system-backend",
   "version": "1.0.0",
-  "description": "MediNet Backend API - Doctor Referral & Health Record System",
+  "description": "Patient Referral System Backend API - Doctor Referral & Health Record System",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -22,15 +22,15 @@
     "express",
     "mongodb"
   ],
-  "author": "MediNet Team",
+  "author": "Patient Referral System Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/medinet-backend.git"
+    "url": "https://github.com/your-username/patient-referral-system-backend.git"
   },
-  "homepage": "https://github.com/your-username/medinet-backend#readme",
+  "homepage": "https://github.com/your-username/patient-referral-system-backend#readme",
   "bugs": {
-    "url": "https://github.com/your-username/medinet-backend/issues"
+    "url": "https://github.com/your-username/patient-referral-system-backend/issues"
   },
   "engines": {
     "node": ">=18.0.0",

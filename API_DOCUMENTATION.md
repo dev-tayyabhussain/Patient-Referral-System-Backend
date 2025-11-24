@@ -1,11 +1,11 @@
-# 🔐 MediNet Backend API Documentation
+# 🔐 Patient Referral System Backend API Documentation
 
 ## Authentication Endpoints
 
 ### Base URL
 
 - **Development**: `http://localhost:5000/api`
-- **Production**: `https://medinet-backend.onrender.com/api`
+- **Production**: `https://patient-referral-system-backend.onrender.com/api`
 
 ---
 
@@ -460,7 +460,7 @@ JWT_COOKIE_EXPIRE=7
 # Email Configuration
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_email_app_password
-EMAIL_FROM=noreply@medinet.com
+EMAIL_FROM=noreply@patient-referral-system.com
 
 # Frontend URL (for email links)
 FRONTEND_URL=http://localhost:5173
