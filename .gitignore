@@ -135,7 +135,7 @@ dist/
 
 # Docker
 .dockerignore
-Dockerfile
+# Dockerfile
 docker-compose*.yml
 
 # Testing
