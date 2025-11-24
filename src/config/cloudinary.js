@@ -7,7 +7,7 @@ cloudinary.config({
 });
 
 // Helper function to upload files to Cloudinary
-const uploadToCloudinary = async (file, folder = 'medinet') => {
+const uploadToCloudinary = async (file, folder = 'patient-referral-system') => {
     try {
         const result = await cloudinary.uploader.upload(file.path, {
             folder: folder,

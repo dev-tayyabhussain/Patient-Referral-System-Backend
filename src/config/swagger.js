@@ -4,12 +4,12 @@ const options = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'MediNet API',
+            title: 'Patient Referral System API',
             version: '1.0.0',
             description: 'A comprehensive Doctor Referral & Health Record Management System API',
             contact: {
-                name: 'MediNet Support',
-                email: 'support@medinet.com',
+                name: 'Patient Referral System Support',
+                email: 'support@patientreferralsystem.com',
             },
             license: {
                 name: 'MIT',
@@ -19,7 +19,7 @@ const options = {
         servers: [
             {
                 url: process.env.NODE_ENV === 'production'
-                    ? 'https://medinet-backend.onrender.com/api'
+                    ? 'https://patient-referral-system-backend.onrender.com/api'
                     : 'http://localhost:5000/api',
                 description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
             },

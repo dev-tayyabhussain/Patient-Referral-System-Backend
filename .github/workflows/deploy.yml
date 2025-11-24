@@ -89,14 +89,14 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
-          tags: medinet-backend:latest
-          outputs: type=docker,dest=/tmp/medinet-backend.tar
+          tags: patient-referral-system-backend:latest
+          outputs: type=docker,dest=/tmp/patient-referral-system-backend.tar
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: medinet-backend
-          path: /tmp/medinet-backend.tar
+          name: patient-referral-system-backend
+          path: /tmp/patient-referral-system-backend.tar
 
   performance-test:
     name: Performance Test
@@ -112,12 +112,12 @@ jobs:
       - name: Download Docker image
         uses: actions/download-artifact@v4
         with:
-          name: medinet-backend
+          name: patient-referral-system-backend
           path: /tmp
 
       - name: Load Docker image
         run: |
-          docker load --input /tmp/medinet-backend.tar
+          docker load --input /tmp/patient-referral-system-backend.tar
           docker image ls -a
 
       - name: Start Backend Container

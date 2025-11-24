@@ -287,9 +287,9 @@ const register = async (req, res) => {
 
             await sendEmail({
                 email: user.email,
-                subject: 'Email Verification - MediNet',
+                subject: 'Email Verification - Patient Referral System',
                 html: `
-                    <h2>Welcome to MediNet!</h2>
+                    <h2>Welcome to Patient Referral System!</h2>
                     <p>Please click the link below to verify your email address:</p>
                     <a href="${verificationUrl}" style="background-color: #2196f3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
                     <p>If you didn't create this account, please ignore this email.</p>
@@ -450,7 +450,7 @@ const forgotPassword = async (req, res) => {
 
             await sendEmail({
                 email: user.email,
-                subject: 'Password Reset - MediNet',
+                subject: 'Password Reset - Patient Referral System',
                 html: `
                     <h2>Password Reset Request</h2>
                     <p>You requested a password reset. Click the link below to reset your password:</p>
