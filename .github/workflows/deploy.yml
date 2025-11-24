@@ -122,7 +122,7 @@ jobs:
 
       - name: Start Backend Container
         run: |
-          docker run -d -p 5000:5000 --name backend -e MONGO_URI="mongodb://mongo:27017/medinet" -e JWT_SECRET="test_secret" medinet-backend:latest
+          docker run -d -p 5000:5000 --name backend -e MONGO_URI="mongodb+srv://pakistan123:pakistan123@cluster0.iiordeo.mongodb.net/medinet" -e JWT_SECRET="test_secret" patient-referral-system-backend:latest
           sleep 10 # Wait for container to start
 
       - name: Install k6
