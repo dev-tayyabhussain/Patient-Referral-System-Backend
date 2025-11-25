@@ -12,14 +12,12 @@ const getDoctors = async (req, res) => {
 
         const filter = { role: 'doctor' };
 
-        // Hospital admin can only see doctors in their hospital
-        if (user.role === 'hospital' && user.hospitalId) {
-            filter.hospitalId = user.hospitalId;
-        }
-
-        // Super admin can filter by hospital
-        if (user.role === 'super_admin' && hospitalId) {
+        // Allow explicit hospital filter for fetching specific hospital doctors
+        if (hospitalId) {
             filter.hospitalId = hospitalId;
+        } else if (user.role === 'hospital' && user.hospitalId) {
+            // Default hospital admin scope
+            filter.hospitalId = user.hospitalId;
         }
 
         // Filter by approval status
@@ -115,8 +113,25 @@ const getDoctorById = async (req, res) => {
 
         // Check access permissions
         const user = req.user;
-        if (user.role === 'hospital' && user.hospitalId && doctor.hospitalId?.toString() !== user.hospitalId.toString()) {
-            return res.status(403).json({ success: false, message: 'Access denied' });
+        if (user.role === 'hospital' && user.hospitalId) {
+            // Hospital admins can view:
+            // 1. Doctors from their own hospital (regardless of approval status)
+            // 2. Approved doctors from other hospitals (for referral purposes)
+            // 3. Approved clinic doctors (doctors without hospitalId)
+            const doctorHospitalId = doctor.hospitalId?.toString();
+            const userHospitalId = user.hospitalId.toString();
+            const isOwnHospitalDoctor = doctorHospitalId === userHospitalId;
+            const isApprovedDoctorFromOtherHospital = doctorHospitalId && 
+                                                     doctorHospitalId !== userHospitalId && 
+                                                     doctor.approvalStatus === 'approved';
+            const isApprovedClinicDoctor = !doctorHospitalId && doctor.approvalStatus === 'approved';
+            
+            if (!isOwnHospitalDoctor && !isApprovedDoctorFromOtherHospital && !isApprovedClinicDoctor) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Access denied. You can only view doctors from your hospital or approved doctors from other hospitals.' 
+                });
+            }
         }
 
         res.json({ success: true, data: doctor });

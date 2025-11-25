@@ -281,6 +281,22 @@ const createReferral = async (req, res) => {
         // Generate referral ID (pre-save hook will also generate if not provided, but we'll set it explicitly)
         const referralId = Referral.generateReferralId();
 
+        // Handle diagnosis field - convert string to object format if needed
+        let diagnosisObj = {
+            primary: '',
+            secondary: []
+        };
+        if (diagnosis) {
+            if (typeof diagnosis === 'string') {
+                diagnosisObj.primary = diagnosis;
+            } else if (typeof diagnosis === 'object' && diagnosis !== null) {
+                diagnosisObj = {
+                    primary: diagnosis.primary || '',
+                    secondary: diagnosis.secondary || []
+                };
+            }
+        }
+
         // Create referral
         const referralData = {
             referralId,
@@ -296,7 +312,7 @@ const createReferral = async (req, res) => {
             historyOfPresentIllness: historyOfPresentIllness || '',
             physicalExamination: physicalExamination || '',
             vitalSigns: vitalSigns || {},
-            diagnosis: diagnosis || '',
+            diagnosis: diagnosisObj,
             treatmentPlan: treatmentPlan || '',
             notes: notes || '',
             status: 'pending'
@@ -346,18 +362,97 @@ const updateReferral = async (req, res) => {
             }
         }
 
-        // Update allowed fields
+        // Update allowed fields (accept both with and without "Id" suffix for compatibility)
         const allowedFields = [
             'reason', 'priority', 'specialty', 'chiefComplaint',
             'historyOfPresentIllness', 'physicalExamination', 'vitalSigns',
-            'diagnosis', 'treatmentPlan', 'notes', 'receivingDoctor'
+            'treatmentPlan', 'notes'
         ];
 
+        // Handle receivingHospitalId (frontend sends this, but we store as receivingHospital)
+        if (updateData.receivingHospitalId !== undefined) {
+            referral.receivingHospital = updateData.receivingHospitalId;
+        } else if (updateData.receivingHospital !== undefined) {
+            referral.receivingHospital = updateData.receivingHospital;
+        }
+
+        // Handle receivingDoctorId (frontend sends this, but we store as receivingDoctor)
+        if (updateData.receivingDoctorId !== undefined) {
+            referral.receivingDoctor = updateData.receivingDoctorId || null;
+        } else if (updateData.receivingDoctor !== undefined) {
+            referral.receivingDoctor = updateData.receivingDoctor || null;
+        }
+
+        // Determine what will be the final values after update
+        const newReceivingHospitalId = referral.receivingHospital;
+        const newReceivingDoctorId = referral.receivingDoctor;
+
+        // Validate receiving doctor belongs to receiving hospital if both are provided
+        if (newReceivingDoctorId && newReceivingHospitalId) {
+            const receivingDoctor = await User.findById(newReceivingDoctorId);
+            if (!receivingDoctor || receivingDoctor.role !== 'doctor') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid receiving doctor ID'
+                });
+            }
+            
+            // If doctor has a hospitalId, it must match the receiving hospital
+            // If doctor doesn't have a hospitalId (clinic doctor), that's also valid
+            if (receivingDoctor.hospitalId) {
+                const doctorHospitalId = receivingDoctor.hospitalId.toString();
+                const receivingHospitalIdStr = newReceivingHospitalId.toString();
+                if (doctorHospitalId !== receivingHospitalIdStr) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Receiving doctor must belong to the receiving hospital'
+                    });
+                }
+            }
+        }
+
+        // Apply other field updates
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
                 referral[field] = updateData[field];
             }
         });
+
+        // If receiving hospital was updated and there's a receiving doctor that doesn't belong to new hospital, clear the doctor
+        if ((updateData.receivingHospitalId !== undefined || updateData.receivingHospital !== undefined) && referral.receivingDoctor) {
+            const receivingDoctor = await User.findById(referral.receivingDoctor);
+            if (receivingDoctor && receivingDoctor.hospitalId) {
+                const doctorHospitalId = receivingDoctor.hospitalId.toString();
+                const newHospitalIdStr = referral.receivingHospital.toString();
+                if (doctorHospitalId !== newHospitalIdStr) {
+                    // Clear the receiving doctor if they don't belong to the new hospital
+                    referral.receivingDoctor = null;
+                }
+            }
+        }
+
+        // Handle diagnosis field specially - it's an object with primary and secondary
+        if (updateData.diagnosis !== undefined) {
+            if (typeof updateData.diagnosis === 'string') {
+                // If it's a string, convert to object format
+                referral.diagnosis = {
+                    primary: updateData.diagnosis || '',
+                    secondary: []
+                };
+            } else if (typeof updateData.diagnosis === 'object' && updateData.diagnosis !== null) {
+                // If it's already an object, use it directly
+                referral.diagnosis = {
+                    primary: updateData.diagnosis.primary || '',
+                    secondary: updateData.diagnosis.secondary || []
+                };
+            } else {
+                // If it's empty/null, set to empty object
+                referral.diagnosis = {
+                    primary: '',
+                    secondary: []
+                };
+            }
+        }
 
         await referral.save();
 
