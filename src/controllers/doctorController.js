@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Hospital = require('../models/Hospital');
 const Clinic = require('../models/Clinic');
+const Referral = require('../models/Referral');
 
 // @desc    Get all doctors
 // @route   GET /api/doctors
@@ -269,9 +270,310 @@ const createDoctor = async (req, res) => {
     }
 };
 
+// @desc    Get doctor's patients
+// @route   GET /api/doctors/:id/patients
+// @access  Private (Doctor, Hospital Admin)
+const getDoctorPatients = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = req.user;
+        const { page = 1, limit = 10, search, status } = req.query;
+
+        // Check if doctor exists
+        const doctor = await User.findById(id);
+        if (!doctor || doctor.role !== 'doctor') {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        }
+
+        // Check permissions - doctor can only see their own patients, hospital admin can see their hospital's doctors' patients
+        if (user.role === 'doctor' && user._id.toString() !== id) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+        if (user.role === 'hospital' && user.hospitalId && doctor.hospitalId?.toString() !== user.hospitalId.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        // Get patient IDs from referrals
+        const referralFilter = {
+            $or: [
+                { referringDoctor: id },
+                { receivingDoctor: id }
+            ]
+        };
+        const patientIds = await Referral.distinct('patient', referralFilter);
+
+        // Build query
+        const query = {
+            role: 'patient',
+            _id: { $in: patientIds }
+        };
+
+        if (search) {
+            query.$or = [
+                { firstName: { $regex: search, $options: 'i' } },
+                { lastName: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { phone: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (status && status !== 'all') {
+            query.isActive = status === 'active';
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const patients = await User.find(query)
+            .select('-password')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean();
+
+        // Add age calculation
+        const patientsWithAge = patients.map(patient => {
+            const age = patient.dateOfBirth 
+                ? Math.floor((new Date() - new Date(patient.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000))
+                : null;
+            return { ...patient, age };
+        });
+
+        const total = await User.countDocuments(query);
+
+        res.json({
+            success: true,
+            data: {
+                patients: patientsWithAge,
+                pagination: {
+                    current: parseInt(page),
+                    pages: Math.ceil(total / parseInt(limit)),
+                    total,
+                    limit: parseInt(limit)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Get doctor patients error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching doctor patients',
+            error: error.message
+        });
+    }
+};
+
+// @desc    Get doctor's referrals
+// @route   GET /api/doctors/:id/referrals
+// @access  Private (Doctor, Hospital Admin)
+const getDoctorReferrals = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = req.user;
+        const { page = 1, limit = 10, status, priority, search } = req.query;
+
+        // Check if doctor exists
+        const doctor = await User.findById(id);
+        if (!doctor || doctor.role !== 'doctor') {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        }
+
+        // Check permissions
+        if (user.role === 'doctor' && user._id.toString() !== id) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+        if (user.role === 'hospital' && user.hospitalId && doctor.hospitalId?.toString() !== user.hospitalId.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        // Build query
+        const query = {
+            $or: [
+                { referringDoctor: id },
+                { receivingDoctor: id }
+            ]
+        };
+
+        if (status && status !== 'all') {
+            query.status = status;
+        }
+
+        if (priority && priority !== 'all') {
+            query.priority = priority;
+        }
+
+        if (search) {
+            query.$or = [
+                ...query.$or,
+                { referralId: { $regex: search, $options: 'i' } },
+                { reason: { $regex: search, $options: 'i' } },
+                { specialty: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const referrals = await Referral.find(query)
+            .populate('patient', 'firstName lastName email phone')
+            .populate('referringHospital', 'name address')
+            .populate('receivingHospital', 'name address')
+            .populate('referringDoctor', 'firstName lastName specialization')
+            .populate('receivingDoctor', 'firstName lastName specialization')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean();
+
+        const total = await Referral.countDocuments(query);
+
+        // Calculate stats
+        const stats = {
+            total: await Referral.countDocuments(query),
+            pending: await Referral.countDocuments({ ...query, status: 'pending' }),
+            accepted: await Referral.countDocuments({ ...query, status: 'accepted' }),
+            completed: await Referral.countDocuments({ ...query, status: 'completed' }),
+            in_progress: await Referral.countDocuments({ ...query, status: 'in_progress' })
+        };
+
+        res.json({
+            success: true,
+            data: {
+                referrals,
+                pagination: {
+                    current: parseInt(page),
+                    pages: Math.ceil(total / parseInt(limit)),
+                    total,
+                    limit: parseInt(limit)
+                },
+                stats
+            }
+        });
+    } catch (error) {
+        console.error('Get doctor referrals error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching doctor referrals',
+            error: error.message
+        });
+    }
+};
+
+// @desc    Get doctor's analytics
+// @route   GET /api/doctors/:id/analytics
+// @access  Private (Doctor, Hospital Admin)
+const getDoctorAnalytics = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = req.user;
+        const { period = 30 } = req.query;
+
+        // Check if doctor exists
+        const doctor = await User.findById(id);
+        if (!doctor || doctor.role !== 'doctor') {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        }
+
+        // Check permissions
+        if (user.role === 'doctor' && user._id.toString() !== id) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+        if (user.role === 'hospital' && user.hospitalId && doctor.hospitalId?.toString() !== user.hospitalId.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        const days = parseInt(period);
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
+        const referralFilter = {
+            $or: [
+                { referringDoctor: id },
+                { receivingDoctor: id }
+            ],
+            createdAt: { $gte: startDate }
+        };
+
+        // Get referral trends
+        const dailyTrends = await Referral.aggregate([
+            { $match: referralFilter },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Get referrals by status
+        const statusCounts = await Referral.aggregate([
+            { $match: referralFilter },
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+        ]);
+
+        // Get referrals by priority
+        const priorityCounts = await Referral.aggregate([
+            { $match: referralFilter },
+            { $group: { _id: '$priority', count: { $sum: 1 } } }
+        ]);
+
+        // Get referrals by specialty
+        const specialtyCounts = await Referral.aggregate([
+            { $match: referralFilter },
+            { $group: { _id: '$specialty', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]);
+
+        // Get patient IDs from referrals
+        const patientIds = await Referral.distinct('patient', {
+            $or: [
+                { referringDoctor: id },
+                { receivingDoctor: id }
+            ]
+        });
+
+        const totalPatients = await User.countDocuments({
+            role: 'patient',
+            _id: { $in: patientIds }
+        });
+
+        res.json({
+            success: true,
+            data: {
+                dailyTrends: dailyTrends.map(item => ({
+                    date: item._id,
+                    count: item.count
+                })),
+                statusCounts: statusCounts.reduce((acc, item) => {
+                    acc[item._id] = item.count;
+                    return acc;
+                }, {}),
+                priorityCounts: priorityCounts.reduce((acc, item) => {
+                    acc[item._id] = item.count;
+                    return acc;
+                }, {}),
+                specialtyCounts: specialtyCounts.map(item => ({
+                    specialty: item._id,
+                    count: item.count
+                })),
+                totalPatients,
+                totalReferrals: await Referral.countDocuments(referralFilter)
+            }
+        });
+    } catch (error) {
+        console.error('Get doctor analytics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching doctor analytics',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getDoctors,
     getDoctorById,
-    createDoctor
+    createDoctor,
+    getDoctorPatients,
+    getDoctorReferrals,
+    getDoctorAnalytics
 };
 

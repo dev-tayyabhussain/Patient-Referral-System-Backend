@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { getDoctors, getDoctorById, createDoctor } = require('../controllers/doctorController');
+const { 
+    getDoctors, 
+    getDoctorById, 
+    createDoctor,
+    getDoctorPatients,
+    getDoctorReferrals,
+    getDoctorAnalytics
+} = require('../controllers/doctorController');
 const { protect, authorize } = require('../middleware/auth');
 
 /**
@@ -138,5 +145,20 @@ router.get('/:id', protect, authorize('super_admin', 'hospital', 'doctor'), getD
  *         description: Unauthorized
  */
 router.post('/', protect, authorize('super_admin', 'hospital'), createDoctor);
+
+// @route   GET /api/doctors/:id/patients
+// @desc    Get doctor's patients
+// @access  Private (Doctor, Hospital Admin)
+router.get('/:id/patients', protect, authorize('doctor', 'hospital'), getDoctorPatients);
+
+// @route   GET /api/doctors/:id/referrals
+// @desc    Get doctor's referrals
+// @access  Private (Doctor, Hospital Admin)
+router.get('/:id/referrals', protect, authorize('doctor', 'hospital'), getDoctorReferrals);
+
+// @route   GET /api/doctors/:id/analytics
+// @desc    Get doctor's analytics
+// @access  Private (Doctor, Hospital Admin)
+router.get('/:id/analytics', protect, authorize('doctor', 'hospital'), getDoctorAnalytics);
 
 module.exports = router;

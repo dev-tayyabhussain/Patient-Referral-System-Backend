@@ -159,8 +159,17 @@ const getHospitalDashboard = async (req, res) => {
 // @access  Private (Doctor only)
 const getDoctorDashboard = async (req, res) => {
     try {
-        const doctorId = req.user.id;
+        const doctorId = req.user._id;
         const hospitalId = req.user.hospitalId;
+
+        // Get patients - patients are Users with role='patient' that have been referred to this doctor
+        // We'll get patients from referrals where this doctor is the referring or receiving doctor
+        const patientIdsFromReferrals = await Referral.distinct('patient', {
+            $or: [
+                { referringDoctor: doctorId },
+                { receivingDoctor: doctorId }
+            ]
+        });
 
         const [
             totalPatients,
@@ -168,44 +177,98 @@ const getDoctorDashboard = async (req, res) => {
             pendingReferrals,
             completedReferrals,
             thisMonthReferrals,
+            activeReferrals,
             recentPatients,
             recentAppointments,
             recentReferrals,
             recentActivities
         ] = await Promise.all([
-            Patient.countDocuments({ doctorId }),
+            User.countDocuments({
+                role: 'patient',
+                _id: { $in: patientIdsFromReferrals }
+            }),
             getTodayAppointments(hospitalId, doctorId),
-            Referral.countDocuments({ fromDoctor: doctorId, status: 'pending' }),
-            Referral.countDocuments({ fromDoctor: doctorId, status: 'completed' }),
             Referral.countDocuments({
-                fromDoctor: doctorId,
+                $or: [
+                    { referringDoctor: doctorId, status: 'pending' },
+                    { receivingDoctor: doctorId, status: 'pending' }
+                ]
+            }),
+            Referral.countDocuments({
+                $or: [
+                    { referringDoctor: doctorId, status: 'completed' },
+                    { receivingDoctor: doctorId, status: 'completed' }
+                ]
+            }),
+            Referral.countDocuments({
+                $or: [
+                    { referringDoctor: doctorId },
+                    { receivingDoctor: doctorId }
+                ],
                 createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
             }),
-            Patient.find({ doctorId })
-                .select('firstName lastName age gender lastVisit nextAppointment status condition priority')
-                .sort({ lastVisit: -1 })
-                .limit(5),
-            getDoctorAppointments(doctorId),
-            Referral.find({ fromDoctor: doctorId })
-                .populate('patientId', 'firstName lastName')
-                .populate('toHospital', 'name')
+            Referral.countDocuments({
+                $or: [
+                    { referringDoctor: doctorId },
+                    { receivingDoctor: doctorId }
+                ],
+                status: { $in: ['pending', 'accepted', 'in_progress'] }
+            }),
+            User.find({
+                role: 'patient',
+                _id: { $in: patientIdsFromReferrals }
+            })
+                .select('firstName lastName email phone dateOfBirth gender profileImage')
                 .sort({ createdAt: -1 })
-                .limit(5),
+                .limit(10)
+                .lean(),
+            getDoctorAppointments(doctorId),
+            Referral.find({
+                $or: [
+                    { referringDoctor: doctorId },
+                    { receivingDoctor: doctorId }
+                ]
+            })
+                .populate('patient', 'firstName lastName email phone')
+                .populate('referringHospital', 'name address')
+                .populate('receivingHospital', 'name address')
+                .populate('referringDoctor', 'firstName lastName specialization')
+                .populate('receivingDoctor', 'firstName lastName specialization')
+                .sort({ createdAt: -1 })
+                .limit(10)
+                .lean(),
             getRecentActivities('doctor', null, doctorId)
         ]);
 
+        // Calculate age for patients
+        const patientsWithAge = recentPatients.map(patient => {
+            const age = patient.dateOfBirth
+                ? Math.floor((new Date() - new Date(patient.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000))
+                : null;
+            return { ...patient, age };
+        });
+
         const stats = {
-            doctorName: `${req.user.firstName} ${req.user.lastName}`,
-            specialization: req.user.specialization,
+            doctorName: `Dr. ${req.user.firstName} ${req.user.lastName}`,
+            specialization: req.user.specialization || 'General Practice',
             totalPatients,
             todayAppointments,
             pendingReferrals,
             completedReferrals,
+            activeReferrals,
             thisMonthReferrals,
             averageRating: 4.8, // This would come from a ratings system
             monthlyGrowth: {
-                patients: await getMonthlyGrowth(Patient, { doctorId }),
-                referrals: await getMonthlyGrowth(Referral, { fromDoctor: doctorId })
+                patients: await getMonthlyGrowth(User, {
+                    role: 'patient',
+                    _id: { $in: patientIdsFromReferrals }
+                }),
+                referrals: await getMonthlyGrowth(Referral, {
+                    $or: [
+                        { referringDoctor: doctorId },
+                        { receivingDoctor: doctorId }
+                    ]
+                })
             }
         };
 
@@ -213,7 +276,7 @@ const getDoctorDashboard = async (req, res) => {
             success: true,
             data: {
                 stats,
-                patients: recentPatients,
+                patients: patientsWithAge,
                 appointments: recentAppointments,
                 referrals: recentReferrals,
                 activities: recentActivities
@@ -337,7 +400,7 @@ const getRecentActivities = async (role, hospitalId = null, doctorId = null, pat
             });
         }
 
-        if (role === 'hospital_admin' && hospitalId) {
+        if ((role === 'hospital' || role === 'hospital_admin') && hospitalId) {
             // Get recent doctor additions
             const recentDoctors = await User.find({
                 role: 'doctor',
@@ -378,40 +441,38 @@ const getRecentActivities = async (role, hospitalId = null, doctorId = null, pat
         }
 
         if (role === 'doctor' && doctorId) {
-            // Get recent patient additions
-            const recentPatients = await Patient.find({
-                doctorId,
-                createdAt: { $gte: oneWeekAgo }
-            })
-                .sort({ createdAt: -1 })
-                .limit(5);
-
-            recentPatients.forEach(patient => {
-                activities.push({
-                    id: patient._id.toString(),
-                    type: 'patient_added',
-                    message: `New patient ${patient.firstName} ${patient.lastName} registered`,
-                    timestamp: patient.createdAt.toISOString(),
-                    severity: 'info'
-                });
-            });
-
-            // Get recent referrals created
+            // Get recent referrals created or received
             const recentReferrals = await Referral.find({
-                fromDoctor: doctorId,
+                $or: [
+                    { referringDoctor: doctorId },
+                    { receivingDoctor: doctorId }
+                ],
                 createdAt: { $gte: oneWeekAgo }
             })
-                .populate('patientId', 'firstName lastName')
+                .populate('patient', 'firstName lastName')
+                .populate('receivingHospital', 'name')
+                .populate('referringHospital', 'name')
                 .sort({ createdAt: -1 })
-                .limit(5);
+                .limit(10);
 
             recentReferrals.forEach(referral => {
+                const isReferring = referral.referringDoctor?.toString() === doctorId.toString();
+                const patientName = referral.patient
+                    ? `${referral.patient.firstName} ${referral.patient.lastName}`
+                    : 'Unknown Patient';
+                const hospitalName = isReferring
+                    ? referral.receivingHospital?.name || 'Unknown Hospital'
+                    : referral.referringHospital?.name || 'Unknown Hospital';
+
                 activities.push({
                     id: referral._id.toString(),
-                    type: 'referral_created',
-                    message: `Referral created for ${referral.patientId?.firstName} ${referral.patientId?.lastName}`,
+                    type: isReferring ? 'referral_created' : 'referral_received',
+                    message: isReferring
+                        ? `Referral created for ${patientName} to ${hospitalName}`
+                        : `Referral received for ${patientName} from ${referral.referringHospital?.name || 'Unknown'}`,
                     timestamp: referral.createdAt.toISOString(),
-                    severity: 'info'
+                    severity: referral.status === 'completed' ? 'success' :
+                        referral.status === 'pending' ? 'warning' : 'info'
                 });
             });
         }
@@ -538,7 +599,7 @@ const getDoctorAppointments = async (doctorId) => {
                 _id: '1',
                 patientName: 'John Smith',
                 time: '09:00 AM',
-                date: '2024-01-16',
+                date: '2025-01-16',
                 type: 'Follow-up',
                 status: 'Scheduled',
                 notes: 'Blood pressure check',
@@ -548,7 +609,7 @@ const getDoctorAppointments = async (doctorId) => {
                 _id: '2',
                 patientName: 'Jane Doe',
                 time: '10:30 AM',
-                date: '2024-01-16',
+                date: '2025-01-16',
                 type: 'Consultation',
                 status: 'Scheduled',
                 notes: 'ECG review',
@@ -577,7 +638,7 @@ const getUpcomingAppointments = async (patientId) => {
         return [
             {
                 _id: '1',
-                dateTime: '2024-01-20T10:00:00Z',
+                dateTime: '2025-01-20T10:00:00Z',
                 doctor: 'Dr. Sarah Johnson',
                 specialty: 'Cardiology',
                 type: 'Follow-up',
@@ -600,7 +661,7 @@ const getPatientAppointments = async (patientId, limit = 5) => {
                 _id: '1',
                 doctor: 'Dr. Sarah Johnson',
                 specialty: 'Cardiology',
-                date: '2024-01-20',
+                date: '2025-01-20',
                 time: '10:00 AM',
                 type: 'Follow-up',
                 status: 'Scheduled',
@@ -612,7 +673,7 @@ const getPatientAppointments = async (patientId, limit = 5) => {
                 _id: '2',
                 doctor: 'Dr. Michael Chen',
                 specialty: 'Neurology',
-                date: '2024-01-25',
+                date: '2025-01-25',
                 time: '02:30 PM',
                 type: 'Consultation',
                 status: 'Scheduled',
@@ -643,7 +704,7 @@ const getMedicalRecords = async (patientId) => {
         return [
             {
                 _id: '1',
-                date: '2024-01-10',
+                date: '2025-01-10',
                 doctor: 'Dr. Sarah Johnson',
                 specialty: 'Cardiology',
                 diagnosis: 'Hypertension',
@@ -654,7 +715,7 @@ const getMedicalRecords = async (patientId) => {
             },
             {
                 _id: '2',
-                date: '2024-01-05',
+                date: '2025-01-05',
                 doctor: 'Dr. Michael Chen',
                 specialty: 'Neurology',
                 diagnosis: 'Migraine',
