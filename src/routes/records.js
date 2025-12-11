@@ -1,33 +1,35 @@
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/auth');
+const {
+    getRecords,
+    getRecordById,
+    createRecord,
+    updateRecord,
+    uploadRecordFiles,
+    getRecordFiles
+} = require('../controllers/recordController');
 
-// Placeholder routes - will be implemented with controllers
-router.get('/', (req, res) => {
-    res.json({ message: 'Get all records endpoint - to be implemented' });
-});
+// All routes require authentication
+router.use(protect);
 
-router.get('/:id', (req, res) => {
-    res.json({ message: 'Get record by ID endpoint - to be implemented' });
-});
+// Get all records with filtering and pagination
+router.get('/', getRecords);
 
-router.post('/', (req, res) => {
-    res.json({ message: 'Create record endpoint - to be implemented' });
-});
+// Get record by ID
+router.get('/:id', getRecordById);
 
-router.put('/:id', (req, res) => {
-    res.json({ message: 'Update record endpoint - to be implemented' });
-});
+// Create new record (doctors only)
+router.post('/', createRecord);
 
-router.delete('/:id', (req, res) => {
-    res.json({ message: 'Delete record endpoint - to be implemented' });
-});
+// Update record (doctors only)
+router.put('/:id', updateRecord);
 
-router.post('/:id/files', (req, res) => {
-    res.json({ message: 'Upload record files endpoint - to be implemented' });
-});
+// Upload files to record
+router.post('/:id/files', uploadRecordFiles);
 
-router.get('/:id/files', (req, res) => {
-    res.json({ message: 'Get record files endpoint - to be implemented' });
-});
+// Get record files
+router.get('/:id/files', getRecordFiles);
 
 module.exports = router;
+
