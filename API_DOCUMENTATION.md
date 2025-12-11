@@ -58,8 +58,8 @@ Register a new user in the system.
     "role": "patient",
     "isActive": true,
     "isEmailVerified": false,
-    "createdAt": "2024-01-15T10:30:00.000Z",
-    "updatedAt": "2024-01-15T10:30:00.000Z"
+    "createdAt": "2025-01-15T10:30:00.000Z",
+    "updatedAt": "2025-01-15T10:30:00.000Z"
   }
 }
 ```
@@ -109,7 +109,7 @@ Authenticate user and return JWT token.
     "lastName": "Doe",
     "email": "john.doe@example.com",
     "role": "patient",
-    "lastLogin": "2024-01-15T10:30:00.000Z"
+    "lastLogin": "2025-01-15T10:30:00.000Z"
   }
 }
 ```
