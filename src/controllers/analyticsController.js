@@ -297,52 +297,75 @@ const getDoctorDashboard = async (req, res) => {
 // @access  Private (Patient only)
 const getPatientDashboard = async (req, res) => {
     try {
-        const patientId = req.user.id;
+        const patientId = req.user._id;
+        const MedicalRecord = require('../models/MedicalRecord');
 
         const [
-            totalAppointments,
-            upcomingAppointments,
+            totalReferrals,
+            activeReferrals,
             completedReferrals,
             pendingReferrals,
-            medicalRecords,
-            recentAppointments,
+            totalRecords,
             recentReferrals,
             recentRecords,
             recentActivities
         ] = await Promise.all([
-            getPatientAppointmentsCount(patientId),
-            getUpcomingAppointments(patientId),
-            Referral.countDocuments({ patientId, status: 'completed' }),
-            Referral.countDocuments({ patientId, status: 'pending' }),
-            getMedicalRecordsCount(patientId),
-            getPatientAppointments(patientId),
-            Referral.find({ patientId })
-                .populate('fromDoctor', 'firstName lastName specialization')
-                .populate('toHospital', 'name')
+            Referral.countDocuments({ patient: patientId }),
+            Referral.countDocuments({
+                patient: patientId,
+                status: { $in: ['pending', 'accepted'] }
+            }),
+            Referral.countDocuments({ patient: patientId, status: 'completed' }),
+            Referral.countDocuments({ patient: patientId, status: 'pending' }),
+            MedicalRecord.countDocuments({ patient: patientId }),
+            Referral.find({ patient: patientId })
+                .populate('referringDoctor', 'firstName lastName specialization profileImage')
+                .populate('receivingDoctor', 'firstName lastName specialization profileImage')
+                .populate('referringHospital', 'name address phone')
+                .populate('receivingHospital', 'name address phone')
                 .sort({ createdAt: -1 })
-                .limit(5),
-            getMedicalRecords(patientId),
+                .limit(10)
+                .lean(),
+            MedicalRecord.find({ patient: patientId })
+                .populate('doctor', 'firstName lastName specialization profileImage')
+                .populate('hospital', 'name address')
+                .sort({ visitDate: -1 })
+                .limit(10)
+                .lean(),
             getRecentActivities('patient', null, null, patientId)
         ]);
+
+        // Get next upcoming referral appointment if any
+        const upcomingReferral = await Referral.findOne({
+            patient: patientId,
+            'appointment.scheduledDate': { $gte: new Date() },
+            status: { $in: ['accepted', 'pending'] }
+        })
+            .populate('receivingHospital', 'name')
+            .populate('receivingDoctor', 'firstName lastName')
+            .sort({ 'appointment.scheduledDate': 1 })
+            .lean();
 
         const stats = {
             patientName: `${req.user.firstName} ${req.user.lastName}`,
             age: calculateAge(req.user.dateOfBirth),
             gender: req.user.gender,
-            primaryDoctor: 'Dr. Sarah Johnson', // This would come from a relationship
-            nextAppointment: upcomingAppointments[0]?.dateTime || null,
-            totalAppointments,
-            upcomingAppointments: upcomingAppointments.length,
+            totalReferrals,
+            activeReferrals,
             completedReferrals,
             pendingReferrals,
-            medicalRecords
+            totalRecords,
+            nextAppointment: upcomingReferral?.appointment?.scheduledDate || null,
+            nextAppointmentHospital: upcomingReferral?.receivingHospital?.name || null,
+            nextAppointmentDoctor: upcomingReferral?.receivingDoctor
+                ? `Dr. ${upcomingReferral.receivingDoctor.firstName} ${upcomingReferral.receivingDoctor.lastName}`
+                : null
         };
 
         res.status(200).json({
             success: true,
             data: {
                 stats,
-                appointments: recentAppointments,
                 referrals: recentReferrals,
                 records: recentRecords,
                 activities: recentActivities
@@ -478,34 +501,55 @@ const getRecentActivities = async (role, hospitalId = null, doctorId = null, pat
         }
 
         if (role === 'patient' && patientId) {
-            // Get recent appointments
-            const recentAppointments = await getPatientAppointments(patientId, 5);
-
-            recentAppointments.forEach(appointment => {
-                activities.push({
-                    id: appointment._id.toString(),
-                    type: 'appointment_scheduled',
-                    message: `Appointment scheduled with ${appointment.doctor}`,
-                    timestamp: appointment.createdAt.toISOString(),
-                    severity: 'info'
-                });
-            });
+            const MedicalRecord = require('../models/MedicalRecord');
 
             // Get recent referrals
             const recentReferrals = await Referral.find({
-                patientId,
+                patient: patientId,
                 createdAt: { $gte: oneWeekAgo }
             })
-                .populate('fromDoctor', 'firstName lastName')
+                .populate('referringDoctor', 'firstName lastName')
+                .populate('receivingHospital', 'name')
                 .sort({ createdAt: -1 })
                 .limit(5);
 
             recentReferrals.forEach(referral => {
+                const doctorName = referral.referringDoctor
+                    ? `Dr. ${referral.referringDoctor.firstName} ${referral.referringDoctor.lastName}`
+                    : 'Unknown Doctor';
+                const hospitalName = referral.receivingHospital?.name || 'Unknown Hospital';
+
                 activities.push({
                     id: referral._id.toString(),
                     type: 'referral_created',
-                    message: `Referral created by Dr. ${referral.fromDoctor?.firstName} ${referral.fromDoctor?.lastName}`,
+                    message: `Referral created by ${doctorName} to ${hospitalName}`,
                     timestamp: referral.createdAt.toISOString(),
+                    severity: referral.status === 'completed' ? 'success' :
+                        referral.status === 'pending' ? 'warning' : 'info'
+                });
+            });
+
+            // Get recent medical records
+            const recentRecords = await MedicalRecord.find({
+                patient: patientId,
+                createdAt: { $gte: oneWeekAgo }
+            })
+                .populate('doctor', 'firstName lastName')
+                .populate('hospital', 'name')
+                .sort({ createdAt: -1 })
+                .limit(5);
+
+            recentRecords.forEach(record => {
+                const doctorName = record.doctor
+                    ? `Dr. ${record.doctor.firstName} ${record.doctor.lastName}`
+                    : 'Unknown Doctor';
+                const hospitalName = record.hospital?.name || 'Unknown Hospital';
+
+                activities.push({
+                    id: record._id.toString(),
+                    type: 'record_created',
+                    message: `Medical record added by ${doctorName} at ${hospitalName}`,
+                    timestamp: record.createdAt.toISOString(),
                     severity: 'info'
                 });
             });
@@ -618,115 +662,6 @@ const getDoctorAppointments = async (doctorId) => {
         ];
     } catch (error) {
         console.error('Error getting doctor appointments:', error);
-        return [];
-    }
-};
-
-const getPatientAppointmentsCount = async (patientId) => {
-    try {
-        // This would be from an Appointment model
-        return 12;
-    } catch (error) {
-        console.error('Error getting patient appointments count:', error);
-        return 0;
-    }
-};
-
-const getUpcomingAppointments = async (patientId) => {
-    try {
-        // This would be from an Appointment model
-        return [
-            {
-                _id: '1',
-                dateTime: '2025-01-20T10:00:00Z',
-                doctor: 'Dr. Sarah Johnson',
-                specialty: 'Cardiology',
-                type: 'Follow-up',
-                status: 'Scheduled',
-                location: 'City General Hospital',
-                notes: 'Blood pressure check and medication review'
-            }
-        ];
-    } catch (error) {
-        console.error('Error getting upcoming appointments:', error);
-        return [];
-    }
-};
-
-const getPatientAppointments = async (patientId, limit = 5) => {
-    try {
-        // This would be from an Appointment model
-        return [
-            {
-                _id: '1',
-                doctor: 'Dr. Sarah Johnson',
-                specialty: 'Cardiology',
-                date: '2025-01-20',
-                time: '10:00 AM',
-                type: 'Follow-up',
-                status: 'Scheduled',
-                location: 'City General Hospital',
-                notes: 'Blood pressure check and medication review',
-                createdAt: new Date()
-            },
-            {
-                _id: '2',
-                doctor: 'Dr. Michael Chen',
-                specialty: 'Neurology',
-                date: '2025-01-25',
-                time: '02:30 PM',
-                type: 'Consultation',
-                status: 'Scheduled',
-                location: 'City General Hospital',
-                notes: 'Neurological assessment',
-                createdAt: new Date()
-            }
-        ];
-    } catch (error) {
-        console.error('Error getting patient appointments:', error);
-        return [];
-    }
-};
-
-const getMedicalRecordsCount = async (patientId) => {
-    try {
-        // This would be from a MedicalRecord model
-        return 8;
-    } catch (error) {
-        console.error('Error getting medical records count:', error);
-        return 0;
-    }
-};
-
-const getMedicalRecords = async (patientId) => {
-    try {
-        // This would be from a MedicalRecord model
-        return [
-            {
-                _id: '1',
-                date: '2025-01-10',
-                doctor: 'Dr. Sarah Johnson',
-                specialty: 'Cardiology',
-                diagnosis: 'Hypertension',
-                treatment: 'Lisinopril 10mg daily',
-                notes: 'Blood pressure well controlled',
-                attachments: ['Lab Results', 'ECG Report'],
-                createdAt: new Date()
-            },
-            {
-                _id: '2',
-                date: '2025-01-05',
-                doctor: 'Dr. Michael Chen',
-                specialty: 'Neurology',
-                diagnosis: 'Migraine',
-                treatment: 'Sumatriptan as needed',
-                notes: 'Headaches reduced significantly',
-                attachments: ['MRI Report'],
-                createdAt: new Date()
-            }
-        ];
-    } catch (error) {
-        console.error('Error getting medical records:', error);
         return [];
     }
 };
