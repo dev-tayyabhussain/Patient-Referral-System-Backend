@@ -23,8 +23,11 @@ const referralSchema = new mongoose.Schema({
     },
     referringHospital: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Hospital',
-        required: [true, 'Referring hospital is required']
+        ref: 'Hospital'
+    },
+    referringClinic: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Clinic'
     },
 
     // Receiving Information
@@ -226,6 +229,13 @@ referralSchema.pre('save', function (next) {
     if (!this.referralId) {
         this.referralId = this.constructor.generateReferralId();
     }
+
+    // Validate that either referringHospital or referringClinic is present
+    if (!this.referringHospital && !this.referringClinic) {
+        const err = new Error('Either referring hospital or referring clinic is required');
+        return next(err);
+    }
+
     next();
 });
 

@@ -36,7 +36,7 @@ const validateRegister = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('password')
         .isLength({ min: 6 })
@@ -58,8 +58,6 @@ const validateRegister = [
 
     body('phone')
         .optional(),
-    // .isMobilePhone()
-    // .withMessage('Please provide a valid phone number'),
 
     body('gender')
         .optional()
@@ -155,7 +153,7 @@ const validateRegister = [
         .optional()
         .isEmail()
         .withMessage('Please provide a valid clinic email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('clinicWebsite')
         .if(body('role').equals('doctor'))
@@ -176,8 +174,8 @@ const validateRegister = [
         .if(body('role').equals('doctor'))
         .notEmpty()
         .withMessage('License number is required for doctors')
-        .isLength({ min: 5, max: 20 })
-        .withMessage('License number must be between 5 and 20 characters'),
+        .isLength({ min: 3, max: 20 })
+        .withMessage('License number must be between 3 and 20 characters'),
 
     body('specialization')
         .if(body('role').equals('doctor'))
@@ -210,9 +208,7 @@ const validateRegister = [
     body('emergencyPhone')
         .if(body('role').equals('patient'))
         .notEmpty()
-        .withMessage('Emergency contact phone is required for patients')
-        .isMobilePhone()
-        .withMessage('Please provide a valid emergency contact phone number'),
+        .withMessage('Emergency contact phone is required for patients'),
 
     body('medicalHistory')
         .if(body('role').equals('patient'))
@@ -248,7 +244,7 @@ const validateLogin = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('password')
         .notEmpty()
@@ -262,7 +258,7 @@ const validateForgotPassword = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     handleValidationErrors
 ];
@@ -383,7 +379,7 @@ const validateHospital = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('phone')
         .optional(),
@@ -480,7 +476,7 @@ const validateHospitalUpdate = [
         .optional()
         .isEmail()
         .withMessage('Please provide a valid email')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('phone')
         .optional(),

@@ -42,8 +42,7 @@ const clinicSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        trim: true,
-        match: [/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number']
+        trim: true
     },
     email: {
         type: String,

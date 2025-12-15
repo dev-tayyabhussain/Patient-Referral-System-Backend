@@ -141,9 +141,11 @@ const createPatient = async (req, res) => {
             hospitalId,
             bloodType,
             allergies,
+
             chronicConditions,
             emergencyContact,
-            emergencyPhone
+            emergencyPhone,
+            medicalHistory
         } = req.body;
 
         // Check if email already exists
@@ -172,9 +174,11 @@ const createPatient = async (req, res) => {
         }
 
         // Hospital admin can only create patients for their hospital
-        let finalHospitalId = hospitalId;
+        let finalHospitalId = null;
         if (user.role === 'hospital' && user.hospitalId) {
             finalHospitalId = user.hospitalId;
+        } else if (hospitalId && hospitalId !== '') {
+            finalHospitalId = hospitalId;
         }
 
         // Handle emergencyContact - convert object to string if needed
@@ -220,6 +224,7 @@ const createPatient = async (req, res) => {
             chronicConditions: chronicConditions || [],
             emergencyContact: emergencyContactString,
             emergencyPhone: finalEmergencyPhone,
+            medicalHistory: medicalHistory || '',
             approvalStatus: 'approved', // Patients are auto-approved
             isActive: true
         };
