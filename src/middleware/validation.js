@@ -36,7 +36,7 @@ const validateRegister = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('password')
         .isLength({ min: 6 })
@@ -153,7 +153,7 @@ const validateRegister = [
         .optional()
         .isEmail()
         .withMessage('Please provide a valid clinic email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('clinicWebsite')
         .if(body('role').equals('doctor'))
@@ -244,7 +244,7 @@ const validateLogin = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('password')
         .notEmpty()
@@ -258,7 +258,7 @@ const validateForgotPassword = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email address')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     handleValidationErrors
 ];
@@ -379,7 +379,7 @@ const validateHospital = [
     body('email')
         .isEmail()
         .withMessage('Please provide a valid email')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('phone')
         .optional(),
@@ -476,7 +476,7 @@ const validateHospitalUpdate = [
         .optional()
         .isEmail()
         .withMessage('Please provide a valid email')
-        .normalizeEmail(),
+        .normalizeEmail({ gmail_remove_dots: false }),
 
     body('phone')
         .optional(),

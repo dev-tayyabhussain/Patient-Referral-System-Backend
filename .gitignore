@@ -145,3 +145,4 @@ coverage/
 # Misc
 *.tgz
 *.tar.gz
+scripts/
