@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getDoctors, 
-    getDoctorById, 
+const {
+    getDoctors,
+    getDoctorById,
     createDoctor,
     getDoctorPatients,
     getDoctorReferrals,
@@ -65,7 +65,7 @@ const { protect, authorize } = require('../middleware/auth');
  *       401:
  *         description: Unauthorized
  */
-router.get('/', protect, authorize('super_admin', 'hospital'), getDoctors);
+router.get('/', protect, authorize('super_admin', 'hospital', 'doctor'), getDoctors);
 
 /**
  * @swagger

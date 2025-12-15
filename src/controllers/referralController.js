@@ -34,6 +34,10 @@ const getReferrals = async (req, res) => {
                 { referringDoctor: user._id },
                 { receivingDoctor: user._id }
             );
+            // Also include referrals where the doctor's clinic is the referring entity
+            if (user.practiceType === 'own_clinic' && user.clinicId) {
+                orConditions.push({ referringClinic: user.clinicId });
+            }
         } else if (user.role === 'patient') {
             query.patient = user._id;
         }
@@ -98,6 +102,7 @@ const getReferrals = async (req, res) => {
             .populate('patient', 'firstName lastName email phone dateOfBirth gender')
             .populate('referringDoctor', 'firstName lastName email specialization')
             .populate('referringHospital', 'name address')
+            .populate('referringClinic', 'name address')
             .populate('receivingDoctor', 'firstName lastName email specialization')
             .populate('receivingHospital', 'name address')
             .sort({ createdAt: -1 })
@@ -153,6 +158,7 @@ const getReferralById = async (req, res) => {
             .populate('patient', 'firstName lastName email phone dateOfBirth gender bloodType')
             .populate('referringDoctor', 'firstName lastName email specialization licenseNumber')
             .populate('referringHospital', 'name address phone email')
+            .populate('referringClinic', 'name address phone email')
             .populate('receivingDoctor', 'firstName lastName email specialization')
             .populate('receivingHospital', 'name address phone email')
             .lean();
@@ -234,7 +240,14 @@ const createReferral = async (req, res) => {
 
         if (user.role === 'doctor') {
             referringDoctor = user._id;
-            referringHospital = user.hospitalId || user.clinicId;
+            if (user.practiceType === 'hospital') {
+                referringHospital = user.hospitalId;
+            } else if (user.practiceType === 'own_clinic') {
+                // For clinic doctors, we use referringClinic instead of referringHospital
+                // But we need to make sure we don't set referringHospital
+                referringHospital = null;
+                // We'll set referringClinic later in the object creation
+            }
         } else if (user.role === 'hospital') {
             referringHospital = user.hospitalId;
 
@@ -270,13 +283,23 @@ const createReferral = async (req, res) => {
             }
         }
 
-        // Validate that we have both referring doctor and hospital
-        if (!referringDoctor || !referringHospital) {
+        // Validate that we have referring doctor and either hospital or clinic
+        if (!referringDoctor || (!referringHospital && !(user.role === 'doctor' && user.practiceType === 'own_clinic'))) {
             return res.status(400).json({
                 success: false,
-                message: 'Referring doctor and hospital are required'
+                message: 'Referring doctor and hospital/clinic are required'
             });
         }
+
+        // For clinic doctors, ensure they have a clinicId
+        if (user.role === 'doctor' && user.practiceType === 'own_clinic' && !user.clinicId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Doctor does not have a registered clinic'
+            });
+        }
+
+
 
         // Generate referral ID (pre-save hook will also generate if not provided, but we'll set it explicitly)
         const referralId = Referral.generateReferralId();
@@ -303,6 +326,7 @@ const createReferral = async (req, res) => {
             patient: patientId,
             referringDoctor: referringDoctor,
             referringHospital: referringHospital,
+            referringClinic: (user.role === 'doctor' && user.practiceType === 'own_clinic') ? user.clinicId : null,
             receivingHospital: receivingHospitalId,
             receivingDoctor: receivingDoctorId || null,
             reason,
@@ -325,6 +349,7 @@ const createReferral = async (req, res) => {
             .populate('patient', 'firstName lastName email phone')
             .populate('referringDoctor', 'firstName lastName email specialization')
             .populate('referringHospital', 'name address')
+            .populate('referringClinic', 'name address')
             .populate('receivingDoctor', 'firstName lastName email specialization')
             .populate('receivingHospital', 'name address')
             .lean();
@@ -396,7 +421,7 @@ const updateReferral = async (req, res) => {
                     message: 'Invalid receiving doctor ID'
                 });
             }
-            
+
             // If doctor has a hospitalId, it must match the receiving hospital
             // If doctor doesn't have a hospitalId (clinic doctor), that's also valid
             if (receivingDoctor.hospitalId) {
@@ -460,6 +485,7 @@ const updateReferral = async (req, res) => {
             .populate('patient', 'firstName lastName email phone')
             .populate('referringDoctor', 'firstName lastName email specialization')
             .populate('referringHospital', 'name address')
+            .populate('referringClinic', 'name address')
             .populate('receivingDoctor', 'firstName lastName email specialization')
             .populate('receivingHospital', 'name address')
             .lean();
