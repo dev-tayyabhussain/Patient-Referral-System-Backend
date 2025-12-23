@@ -463,7 +463,7 @@ const forgotPassword = async (req, res) => {
 
             res.status(200).json({
                 success: true,
-                message: 'Password reset email sent'
+                message: 'If a user with that email exists, a password reset link has been sent'
             });
         } catch (emailError) {
             console.error('Email sending failed:', emailError);
